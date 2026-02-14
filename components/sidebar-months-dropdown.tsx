@@ -28,7 +28,7 @@ export function SidebarMonthsDropdown() {
   const monthIdMatch = pathname.match(/^\/mes\/([a-f0-9-]+)$/i);
   const currentMonthId = monthIdMatch?.[1] ?? null;
 
-  // Abrir al estar en una ruta de mes
+  // Open when on a month route
   useEffect(() => {
     if (currentMonthId) setOpen(true);
   }, [currentMonthId]);
@@ -48,12 +48,12 @@ export function SidebarMonthsDropdown() {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        tooltip="Meses"
+        tooltip="Months"
         onClick={() => setOpen((o) => !o)}
         className="cursor-pointer"
       >
         <Calendar className="size-4" />
-        <span className="truncate">Meses</span>
+        <span className="truncate">Months</span>
         <span className="ml-auto opacity-50 group-data-[collapsible=icon]:hidden">
           {open ? (
             <ChevronDown className="size-4" />
@@ -67,7 +67,7 @@ export function SidebarMonthsDropdown() {
           {isLoading ? (
             <SidebarMenuSubItem>
               <span className="px-2 py-1.5 text-sm text-muted-foreground">
-                Cargando…
+                Loading…
               </span>
             </SidebarMenuSubItem>
           ) : (
@@ -82,7 +82,7 @@ export function SidebarMonthsDropdown() {
                       {m.label}
                       {m.is_closed && (
                         <span className="ml-1 text-muted-foreground text-xs">
-                          (cerrado)
+                          (closed)
                         </span>
                       )}
                     </Link>
@@ -98,7 +98,7 @@ export function SidebarMonthsDropdown() {
                     className="w-full text-left"
                   >
                     <CalendarPlus className="size-4" />
-                    {createMonth.isPending ? "Creando…" : "Agregar nuevo mes"}
+                    {createMonth.isPending ? "Creating…" : "Add new month"}
                   </button>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

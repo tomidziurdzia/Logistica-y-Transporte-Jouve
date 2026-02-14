@@ -10,18 +10,23 @@ create policy "months_authenticated_all"
   using (true)
   with check (true);
 
--- Por si usas otras tablas con RLS ya activado, descomenta y aplica las que necesites:
--- accounts
--- create policy "accounts_authenticated_all" on public.accounts for all to authenticated using (true) with check (true);
+-- accounts: necesario para listar cuentas en la vista del mes
+create policy "accounts_authenticated_all"
+  on public.accounts
+  for all
+  to authenticated
+  using (true)
+  with check (true);
 
--- categories
+-- opening_balances, transactions y transaction_amounts: necesarios para la vista del mes
+create policy "opening_balances_authenticated_all"
+  on public.opening_balances for all to authenticated using (true) with check (true);
+
+create policy "transactions_authenticated_all"
+  on public.transactions for all to authenticated using (true) with check (true);
+
+create policy "transaction_amounts_authenticated_all"
+  on public.transaction_amounts for all to authenticated using (true) with check (true);
+
+-- categories (por si usás categorías en transacciones)
 -- create policy "categories_authenticated_all" on public.categories for all to authenticated using (true) with check (true);
-
--- opening_balances
--- create policy "opening_balances_authenticated_all" on public.opening_balances for all to authenticated using (true) with check (true);
-
--- transactions
--- create policy "transactions_authenticated_all" on public.transactions for all to authenticated using (true) with check (true);
-
--- transaction_amounts
--- create policy "transaction_amounts_authenticated_all" on public.transaction_amounts for all to authenticated using (true) with check (true);

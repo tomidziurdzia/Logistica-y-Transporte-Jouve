@@ -22,7 +22,7 @@ export function AppBreadcrumb() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage>Inicio</BreadcrumbPage>
+            <BreadcrumbPage>Home</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -30,13 +30,13 @@ export function AppBreadcrumb() {
   }
 
   if (pathname.startsWith("/mes/") && monthId) {
-    const monthLabel = monthData?.month?.label ?? "Mes";
+    const monthLabel = monthData?.month?.label ?? "Month";
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
             <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
-              Inicio
+              Home
             </Link>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -53,12 +53,12 @@ export function AppBreadcrumb() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
-            Inicio
+            Home
           </Link>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbPage>{pathname.slice(1) || "Inicio"}</BreadcrumbPage>
+          <BreadcrumbPage>{pathname.slice(1) || "Home"}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
