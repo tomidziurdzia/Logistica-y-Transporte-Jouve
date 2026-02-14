@@ -5,7 +5,7 @@ async function DashboardContent() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">
-        <h2 className="font-bold text-2xl">Períodos</h2>
+        <h2 className="font-bold text-2xl">Periods</h2>
         <DashboardMonths />
       </div>
     </div>
@@ -17,7 +17,7 @@ export default function DashboardPage() {
     <Suspense
       fallback={
         <div className="flex flex-col gap-4">
-          <p className="text-muted-foreground">Cargando…</p>
+          <p className="text-muted-foreground">Loading…</p>
         </div>
       }
     >

@@ -24,14 +24,16 @@ async function DashboardLayoutContent({
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-3 border-b px-4">
           <SidebarTrigger className="-ml-1 size-9 shrink-0" />
           <AppBreadcrumb />
         </header>
-        <div className="flex-1 p-4 md:p-6">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 md:p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -46,7 +48,7 @@ export default function DashboardLayout({
     <Suspense
       fallback={
         <div className="flex min-h-svh w-full items-center justify-center">
-          <p className="text-muted-foreground">Cargando…</p>
+          <p className="text-muted-foreground">Loading…</p>
         </div>
       }
     >

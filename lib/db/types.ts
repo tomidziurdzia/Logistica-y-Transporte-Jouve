@@ -1,6 +1,10 @@
 /** DB types matching Supabase schema (English in code, translate in UI). */
 
-export type TransactionType = "income" | "expense" | "internal_transfer";
+export type TransactionType =
+  | "income"
+  | "expense"
+  | "internal_transfer"
+  | "adjustment";
 
 export type AccountType =
   | "bank"
