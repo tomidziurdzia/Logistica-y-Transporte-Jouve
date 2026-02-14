@@ -14,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { SidebarMonthsDropdown } from "@/components/sidebar-months-dropdown";
 
 export function AppSidebar() {
   return (
@@ -40,6 +41,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMonthsDropdown />
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Clientes">
                   <Link href="/">
