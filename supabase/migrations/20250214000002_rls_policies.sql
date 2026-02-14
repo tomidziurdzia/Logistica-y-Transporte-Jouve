@@ -28,5 +28,10 @@ create policy "transactions_authenticated_all"
 create policy "transaction_amounts_authenticated_all"
   on public.transaction_amounts for all to authenticated using (true) with check (true);
 
--- categories (por si usás categorías en transacciones)
--- create policy "categories_authenticated_all" on public.categories for all to authenticated using (true) with check (true);
+-- categories: required for transaction category dropdown
+create policy "categories_authenticated_all"
+  on public.categories
+  for all
+  to authenticated
+  using (true)
+  with check (true);

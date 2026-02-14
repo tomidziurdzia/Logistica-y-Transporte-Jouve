@@ -10,47 +10,11 @@ import {
 } from "lucide-react";
 import { useMonthData } from "@/hooks/use-month-data";
 import { useAccounts } from "@/hooks/use-accounts";
-import type { MonthData, TransactionWithAmounts } from "@/lib/db/types";
+import type { MonthData } from "@/lib/db/types";
 import { formatCurrency } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
+import { MonthTransactionsTable } from "@/components/month-transactions-table";
 import { Card } from "@/components/ui/card";
-
-const TYPE_LABEL: Record<string, string> = {
-  income: "Income",
-  expense: "Expense",
-  internal_transfer: "Transfer",
-  adjustment: "Adjustment",
-};
-
-const TYPE_BADGE_VARIANT: Record<
-  string,
-  "income" | "expense" | "transfer" | "adjustment"
-> = {
-  income: "income",
-  expense: "expense",
-  internal_transfer: "transfer",
-  adjustment: "adjustment",
-};
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "Z");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = String(d.getUTCFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-}
-
-function getAmountForAccount(
-  tx: TransactionWithAmounts,
-  accountId: string
-): number {
-  const line = tx.transaction_amounts.find((a) => a.account_id === accountId);
-  return line?.amount ?? 0;
-}
-
-function getRowTotal(tx: TransactionWithAmounts): number {
-  return tx.transaction_amounts.reduce((s, a) => s + a.amount, 0);
-}
+import { useCategories } from "@/hooks/use-categories";
 
 const loadingPlaceholder = (
   <p className="text-muted-foreground">Loading month…</p>
@@ -121,6 +85,7 @@ export function MonthView({ monthId }: { monthId: string }) {
   const [mounted, setMounted] = useState(false);
   const { data, isLoading, error } = useMonthData(monthId);
   const { data: accounts } = useAccounts();
+  const { data: categories } = useCategories();
   const summary = useMonthSummary(data);
   const accountBalances = useAccountBalances(data, accounts);
   useEffect(() => {
@@ -244,78 +209,26 @@ export function MonthView({ monthId }: { monthId: string }) {
         )}
       </div>
 
-      {/* Table with scroll: bounded height so scroll works */}
-      <div
-        className="min-h-[200px] overflow-auto rounded-md border"
-        style={{ maxHeight: "calc(100svh - 22rem)" }}
-      >
-        {(data.transactions?.length ?? 0) > 0 ? (
-          <table className="w-full min-w-[600px] text-sm">
-            <thead>
-              <tr className="border-b bg-muted">
-                <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                  Date
-                </th>
-                <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                  Description
-                </th>
-                <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                  Type
-                </th>
-                {(accounts ?? []).map((acc) => (
-                  <th
-                    key={acc.id}
-                    className="sticky top-0 z-10 bg-muted px-3 py-2 text-right font-medium tabular-nums"
-                  >
-                    {acc.name}
-                  </th>
-                ))}
-                <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-right font-medium tabular-nums">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.transactions ?? []).map((tx) => {
-                const total = getRowTotal(tx);
-                return (
-                  <tr
-                    key={tx.id}
-                    className="border-b last:border-b-0 hover:bg-muted/30"
-                  >
-                    <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
-                      {formatDate(tx.date)}
-                    </td>
-                    <td className="px-3 py-2">{tx.description || "—"}</td>
-                    <td className="px-3 py-2">
-                      <Badge
-                        variant={TYPE_BADGE_VARIANT[tx.type] ?? "secondary"}
-                      >
-                        {TYPE_LABEL[tx.type] ?? tx.type}
-                      </Badge>
-                    </td>
-                    {(accounts ?? []).map((acc) => {
-                      const amount = getAmountForAccount(tx, acc.id);
-                      return (
-                        <td
-                          key={acc.id}
-                          className="px-3 py-2 text-right tabular-nums"
-                        >
-                          {amount !== 0 ? formatCurrency(amount) : "—"}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatCurrency(total)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Editable table: add rows, edit inline, Save changes */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {accounts && accounts.length > 0 ? (
+          <MonthTransactionsTable
+            monthId={monthId}
+            accounts={accounts}
+            categories={categories ?? []}
+            transactions={data.transactions ?? []}
+            nextRowOrder={
+              (data.transactions?.length ?? 0) > 0
+                ? Math.max(
+                    ...(data.transactions ?? []).map((t) => t.row_order),
+                    -1
+                  ) + 1
+                : 0
+            }
+          />
         ) : (
-          <p className="border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            No transactions this month. Add transactions to see them here.
+          <p className="text-sm text-muted-foreground">
+            No accounts loaded. Add accounts to manage transactions.
           </p>
         )}
       </div>
