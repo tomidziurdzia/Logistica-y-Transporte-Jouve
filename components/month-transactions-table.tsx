@@ -183,8 +183,10 @@ export function MonthTransactionsTable({
       const dateB = "date" in b ? b.date : "";
       const cmp = (dateA || "").localeCompare(dateB || "");
       if (cmp !== 0) return cmp;
-      const orderA = "row_order" in a ? (a as TransactionWithAmounts).row_order : 0;
-      const orderB = "row_order" in b ? (b as TransactionWithAmounts).row_order : 0;
+      const orderA =
+        "row_order" in a ? (a as TransactionWithAmounts).row_order : 0;
+      const orderB =
+        "row_order" in b ? (b as TransactionWithAmounts).row_order : 0;
       return orderA - orderB;
     });
   }, [transactions, draftRows]);
@@ -330,10 +332,7 @@ export function MonthTransactionsTable({
         setValidationError("At least one amount is required.");
         return;
       }
-      if (
-        display.type === "internal_transfer" &&
-        accountsWithAmount < 2
-      ) {
+      if (display.type === "internal_transfer" && accountsWithAmount < 2) {
         setValidationError("Internal transfer requires at least two accounts.");
         return;
       }
@@ -356,7 +355,9 @@ export function MonthTransactionsTable({
       const orig = transactions.find((t) => t.id === rowId);
       if (!orig) return;
       try {
-        const payload: Parameters<typeof updateTx.mutateAsync>[0] = { id: rowId };
+        const payload: Parameters<typeof updateTx.mutateAsync>[0] = {
+          id: rowId,
+        };
         if (edit.date !== undefined) payload.date = edit.date;
         if (edit.type !== undefined) payload.type = edit.type;
         if (edit.description !== undefined)
@@ -385,14 +386,7 @@ export function MonthTransactionsTable({
         // Error from mutation
       }
     },
-    [
-      edits,
-      allRows,
-      transactions,
-      accountIds,
-      getDisplayRow,
-      updateTx,
-    ]
+    [edits, allRows, transactions, accountIds, getDisplayRow, updateTx]
   );
 
   const handleConfirmDelete = useCallback(async () => {
@@ -484,10 +478,12 @@ export function MonthTransactionsTable({
           </thead>
           <tbody>
             {allRows.map((row) => {
-              const display = getDisplayRow(row);
-              const total = getRowTotal(display, accountIds);
               const isDraft = row.isDraft;
               const isEditing = isDraft || editingRowId === row.id;
+              const display = isEditing
+                ? getDisplayRow(row)
+                : (row as TransactionWithAmounts | DraftRow);
+              const total = getRowTotal(display, accountIds);
               const selectClass =
                 "border-input h-8 w-full rounded-md border bg-transparent px-2 py-1 text-sm";
 
@@ -577,13 +573,10 @@ export function MonthTransactionsTable({
                           pendingAmountInput[amountKey] !== undefined
                             ? pendingAmountInput[amountKey]
                             : amount === 0
-                              ? ""
-                              : String(amount);
+                            ? ""
+                            : String(amount);
                         return (
-                          <td
-                            key={accId}
-                            className="px-3 py-1.5 text-right"
-                          >
+                          <td key={accId} className="px-3 py-1.5 text-right">
                             <Input
                               type="text"
                               inputMode="decimal"
@@ -600,8 +593,8 @@ export function MonthTransactionsTable({
                                   raw === "" || raw === "-"
                                     ? 0
                                     : !Number.isNaN(num)
-                                      ? num
-                                      : amount;
+                                    ? num
+                                    : amount;
                                 if (isDraft) {
                                   setDraftRows((prev) =>
                                     prev.map((r) =>

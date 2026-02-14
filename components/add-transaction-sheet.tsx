@@ -178,12 +178,8 @@ export function AddTransactionSheet({
                 <Input
                   type="text"
                   inputMode="decimal"
-                  value={type === "internal_transfer" ? transferAmount : amount}
-                  onChange={(e) =>
-                    type === "internal_transfer"
-                      ? setTransferAmount(e.target.value)
-                      : setAmount(e.target.value)
-                  }
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
                   placeholder="0"
                   required
                 />
