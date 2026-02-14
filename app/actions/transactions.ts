@@ -75,7 +75,11 @@ export async function updateTransaction(input: UpdateTransactionInput): Promise<
   }
 
   if (amounts !== undefined) {
-    await supabase.from("transaction_amounts").delete().eq("transaction_id", input.id);
+    const { error: deleteError } = await supabase
+      .from("transaction_amounts")
+      .delete()
+      .eq("transaction_id", input.id);
+    if (deleteError) throw new Error(deleteError.message);
     if (amounts.length > 0) {
       const rows = amounts.map(({ account_id, amount }) => ({
         transaction_id: input.id,
