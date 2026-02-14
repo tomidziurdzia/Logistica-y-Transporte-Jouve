@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import {
   Card,
   CardContent,
@@ -5,8 +7,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Suspense } from "react";
 
-export default function Page() {
+async function SignUpSuccessContent() {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) redirect("/");
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
@@ -28,5 +35,19 @@ export default function Page() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignUpSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+          <p className="text-muted-foreground">Cargando…</p>
+        </div>
+      }
+    >
+      <SignUpSuccessContent />
+    </Suspense>
   );
 }
