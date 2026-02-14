@@ -46,3 +46,27 @@ export async function getMonthData(monthId: string): Promise<MonthData | null> {
 
   return { month, opening_balances, transactions };
 }
+
+const MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+export async function createMonth(
+  year: number,
+  month: number,
+  label?: string,
+): Promise<Month> {
+  const supabase = await createClient();
+  const monthLabel =
+    label ?? `${MONTH_NAMES[month - 1]} ${String(year).slice(-2)}`;
+
+  const { data, error } = await supabase
+    .from("months")
+    .insert({ year, month, label: monthLabel })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Month;
+}
