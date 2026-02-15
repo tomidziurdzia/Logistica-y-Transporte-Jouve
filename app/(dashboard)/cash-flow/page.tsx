@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 export default function CashFlowPage() {
   const { data: months, isLoading: loadingMonths } = useMonths();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   const sortedMonths = useMemo(
     () => (months ?? []).slice().sort((a, b) => {
@@ -24,8 +25,7 @@ export default function CashFlowPage() {
     return sortedMonths.slice(0, 4).map((m) => m.id);
   }, [sortedMonths]);
 
-  const effectiveSelected =
-    selectedIds.length > 0 ? selectedIds : defaultSelected;
+  const effectiveSelected = hasUserInteracted ? selectedIds : defaultSelected;
 
   const { data: summary, isLoading: loadingSummary } = useCashFlowSummary(
     effectiveSelected,
@@ -33,6 +33,7 @@ export default function CashFlowPage() {
   );
 
   const toggleMonth = (id: string) => {
+    setHasUserInteracted(true);
     setSelectedIds((prev) => {
       const base = prev.length === 0 ? defaultSelected : prev;
       return base.includes(id)
