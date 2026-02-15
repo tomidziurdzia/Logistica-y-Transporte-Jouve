@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { MoreVertical, Plus, Save, Trash2, X } from "lucide-react";
+import { MoreVertical, Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type {
   Account,
   Category,
@@ -161,6 +161,28 @@ export function MonthTransactionsTable({
     Record<string, string>
   >({});
 
+  // Filters
+  const [filterType, setFilterType] = useState<TransactionType | "">("");
+  const [filterCategoryId, setFilterCategoryId] = useState<string>("");
+  const [filterDescription, setFilterDescription] = useState<string>("");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+
+  const hasActiveFilters =
+    filterType !== "" ||
+    filterCategoryId !== "" ||
+    filterDescription !== "" ||
+    filterDateFrom !== "" ||
+    filterDateTo !== "";
+
+  const clearFilters = useCallback(() => {
+    setFilterType("");
+    setFilterCategoryId("");
+    setFilterDescription("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  }, []);
+
   const createTx = useCreateTransaction(monthId);
   const updateTx = useUpdateTransaction(monthId);
   const deleteTx = useDeleteTransaction(monthId);
@@ -190,6 +212,36 @@ export function MonthTransactionsTable({
       return orderA - orderB;
     });
   }, [transactions, draftRows]);
+
+  const filteredRows = useMemo(() => {
+    if (!hasActiveFilters) return allRows;
+    return allRows.filter((row) => {
+      // Always show draft rows
+      if (row.isDraft) return true;
+      const display = row as TransactionWithAmounts;
+      if (filterType && display.type !== filterType) return false;
+      if (filterCategoryId && display.category_id !== filterCategoryId)
+        return false;
+      if (
+        filterDescription &&
+        !display.description
+          .toLowerCase()
+          .includes(filterDescription.toLowerCase())
+      )
+        return false;
+      if (filterDateFrom && display.date < filterDateFrom) return false;
+      if (filterDateTo && display.date > filterDateTo) return false;
+      return true;
+    });
+  }, [
+    allRows,
+    hasActiveFilters,
+    filterType,
+    filterCategoryId,
+    filterDescription,
+    filterDateFrom,
+    filterDateTo,
+  ]);
 
   const getDisplayRow = useCallback(
     (row: TableRow) => mergeRow(row, edits[row.id]),
@@ -401,11 +453,77 @@ export function MonthTransactionsTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="outline" onClick={addRow}>
           <Plus className="size-4" />
           Add row
         </Button>
+        <div className="mx-1 h-6 w-px bg-border" />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as TransactionType | "")}
+          className="border-input h-8 rounded-md border bg-transparent px-2 py-1 text-sm"
+        >
+          <option value="">Todos los tipos</option>
+          {(
+            Object.entries(TYPE_LABEL) as [TransactionType, string][]
+          ).map(([val, label]) => (
+            <option key={val} value={val}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterCategoryId}
+          onChange={(e) => setFilterCategoryId(e.target.value)}
+          className="border-input h-8 rounded-md border bg-transparent px-2 py-1 text-sm"
+        >
+          <option value="">Todas las categorías</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={filterDescription}
+            onChange={(e) => setFilterDescription(e.target.value)}
+            placeholder="Buscar descripción..."
+            className="h-8 w-44 pl-7 text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Desde</span>
+          <Input
+            type="date"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+            className="h-8 w-36 text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Hasta</span>
+          <Input
+            type="date"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+            className="h-8 w-36 text-sm"
+          />
+        </div>
+        {hasActiveFilters && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-8 text-xs"
+          >
+            <X className="mr-1 size-3" />
+            Limpiar filtros
+          </Button>
+        )}
         {(createTx.isError || updateTx.isError) && (
           <p className="text-sm text-destructive">
             {createTx.error?.message ?? updateTx.error?.message}
@@ -477,7 +595,7 @@ export function MonthTransactionsTable({
             </tr>
           </thead>
           <tbody>
-            {allRows.map((row) => {
+            {filteredRows.map((row) => {
               const isDraft = row.isDraft;
               const isEditing = isDraft || editingRowId === row.id;
               const display = isEditing
@@ -670,7 +788,7 @@ export function MonthTransactionsTable({
                           ))}
                         </select>
                       </td>
-                      <td className="w-[4.5rem] px-1 py-1 align-top">
+                      <td className="w-[4.5rem] px-1 py-1 align-middle">
                         {isDraft ? (
                           <div className="flex items-center gap-0.5">
                             <Button
@@ -728,6 +846,7 @@ export function MonthTransactionsTable({
                                     : setEditingRowId(row.id)
                                 }
                               >
+                                <Pencil className="size-3.5 mr-2" />
                                 {editingRowId === row.id
                                   ? "Cancel edit"
                                   : "Edit"}
@@ -799,6 +918,7 @@ export function MonthTransactionsTable({
                                   : setEditingRowId(row.id)
                               }
                             >
+                              <Pencil className="size-3.5 mr-2" />
                               {editingRowId === row.id ? "Cancel edit" : "Edit"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -818,9 +938,11 @@ export function MonthTransactionsTable({
             })}
           </tbody>
         </table>
-        {allRows.length === 0 && (
+        {filteredRows.length === 0 && (
           <p className="border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            No transactions. Click &quot;Add row&quot; to add one.
+            {hasActiveFilters
+              ? "No hay transacciones que coincidan con los filtros."
+              : 'No transactions. Click "Add row" to add one.'}
           </p>
         )}
       </div>
