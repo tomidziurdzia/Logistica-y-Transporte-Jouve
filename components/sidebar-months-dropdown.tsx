@@ -9,7 +9,8 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
-import { useMonths, useCreateMonth } from "@/hooks/use-months";
+import { useMonths } from "@/hooks/use-months";
+import { NewMonthModal } from "@/components/new-month-modal";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
@@ -34,12 +35,12 @@ export function SidebarMonthsDropdown() {
   const [mounted, setMounted] = useState(false);
   const collapsed = mounted && state === "collapsed";
   const [open, setOpen] = useState(false);
+  const [showNewMonthModal, setShowNewMonthModal] = useState(false);
   const { data: months, isLoading } = useMonths();
-  const createMonth = useCreateMonth();
 
   useEffect(() => setMounted(true), []);
 
-  const monthIdMatch = pathname.match(/^\/mes\/([a-f0-9-]+)$/i);
+  const monthIdMatch = pathname.match(/^\/month\/([a-f0-9-]+)$/i);
   const currentMonthId = monthIdMatch?.[1] ?? null;
 
   // Open when on a month route
@@ -47,17 +48,33 @@ export function SidebarMonthsDropdown() {
     if (currentMonthId) setOpen(true);
   }, [currentMonthId]);
 
-  const handleCreateMonth = () => {
+  // Calculate next month to create
+  const nextMonth = (() => {
+    if (months && months.length > 0) {
+      const latest = months[0]; // sorted desc
+      const m = latest.month === 12 ? 1 : latest.month + 1;
+      const y = latest.month === 12 ? latest.year + 1 : latest.year;
+      return { year: y, month: m };
+    }
     const now = new Date();
-    createMonth.mutate(
-      { year: now.getFullYear(), month: now.getMonth() + 1 },
-      {
-        onSuccess: (month) => {
-          router.push(`/mes/${month.id}`);
-        },
-      }
-    );
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  })();
+
+  const handleCreateMonth = () => {
+    setShowNewMonthModal(true);
   };
+
+  const modal = showNewMonthModal ? (
+    <NewMonthModal
+      year={nextMonth.year}
+      month={nextMonth.month}
+      onClose={() => setShowNewMonthModal(false)}
+      onCreated={(monthId) => {
+        setShowNewMonthModal(false);
+        router.push(`/month/${monthId}`);
+      }}
+    />
+  ) : null;
 
   if (collapsed) {
     return (
@@ -78,7 +95,7 @@ export function SidebarMonthsDropdown() {
               <>
                 {months?.map((m) => (
                   <DropdownMenuItem key={m.id} asChild>
-                    <Link href={`/mes/${m.id}`}>
+                    <Link href={`/month/${m.id}`}>
                       {m.label}
                       {m.is_closed && (
                         <span className="ml-1 text-muted-foreground text-xs">
@@ -90,16 +107,19 @@ export function SidebarMonthsDropdown() {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={handleCreateMonth}
-                  disabled={createMonth.isPending}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleCreateMonth();
+                  }}
                 >
                   <CalendarPlus className="size-4" />
-                  {createMonth.isPending ? "Creating…" : "Add new month"}
+                  Agregar nuevo mes
                 </DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        {modal}
       </SidebarMenuItem>
     );
   }
@@ -136,7 +156,7 @@ export function SidebarMonthsDropdown() {
                     asChild
                     isActive={m.id === currentMonthId}
                   >
-                    <Link href={`/mes/${m.id}`}>
+                    <Link href={`/month/${m.id}`}>
                       {m.label}
                       {m.is_closed && (
                         <span className="ml-1 text-muted-foreground text-xs">
@@ -152,11 +172,10 @@ export function SidebarMonthsDropdown() {
                   <button
                     type="button"
                     onClick={handleCreateMonth}
-                    disabled={createMonth.isPending}
                     className="w-full text-left"
                   >
                     <CalendarPlus className="size-4" />
-                    {createMonth.isPending ? "Creating…" : "Add new month"}
+                    Agregar nuevo mes
                   </button>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
@@ -164,6 +183,7 @@ export function SidebarMonthsDropdown() {
           )}
         </SidebarMenuSub>
       )}
+      {modal}
     </SidebarMenuItem>
   );
 }

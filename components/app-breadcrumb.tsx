@@ -13,7 +13,7 @@ import { useMonthData } from "@/hooks/use-month-data";
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
-  const monthIdMatch = pathname.match(/^\/mes\/([a-f0-9-]+)$/i);
+  const monthIdMatch = pathname.match(/^\/month\/([a-f0-9-]+)$/i);
   const monthId = monthIdMatch?.[1] ?? null;
   const { data: monthData } = useMonthData(monthId);
 
@@ -29,7 +29,7 @@ export function AppBreadcrumb() {
     );
   }
 
-  if (pathname.startsWith("/mes/") && monthId) {
+  if (pathname.startsWith("/month/") && monthId) {
     const monthLabel = monthData?.month?.label ?? "Month";
     return (
       <Breadcrumb>
