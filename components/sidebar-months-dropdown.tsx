@@ -16,14 +16,28 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function SidebarMonthsDropdown() {
   const pathname = usePathname();
   const router = useRouter();
+  const { state } = useSidebar();
+  const [mounted, setMounted] = useState(false);
+  const collapsed = mounted && state === "collapsed";
   const [open, setOpen] = useState(false);
   const { data: months, isLoading } = useMonths();
   const createMonth = useCreateMonth();
+
+  useEffect(() => setMounted(true), []);
 
   const monthIdMatch = pathname.match(/^\/mes\/([a-f0-9-]+)$/i);
   const currentMonthId = monthIdMatch?.[1] ?? null;
@@ -45,16 +59,60 @@ export function SidebarMonthsDropdown() {
     );
   };
 
+  if (collapsed) {
+    return (
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton className="cursor-pointer">
+              <Calendar className="size-4" />
+              <span className="truncate">Months</span>
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start">
+            <DropdownMenuLabel>Months</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {isLoading ? (
+              <DropdownMenuItem disabled>Loading…</DropdownMenuItem>
+            ) : (
+              <>
+                {months?.map((m) => (
+                  <DropdownMenuItem key={m.id} asChild>
+                    <Link href={`/mes/${m.id}`}>
+                      {m.label}
+                      {m.is_closed && (
+                        <span className="ml-1 text-muted-foreground text-xs">
+                          (closed)
+                        </span>
+                      )}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleCreateMonth}
+                  disabled={createMonth.isPending}
+                >
+                  <CalendarPlus className="size-4" />
+                  {createMonth.isPending ? "Creating…" : "Add new month"}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        tooltip="Months"
         onClick={() => setOpen((o) => !o)}
         className="cursor-pointer"
       >
         <Calendar className="size-4" />
         <span className="truncate">Months</span>
-        <span className="ml-auto opacity-50 group-data-[collapsible=icon]:hidden">
+        <span className="ml-auto opacity-50">
           {open ? (
             <ChevronDown className="size-4" />
           ) : (
