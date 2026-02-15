@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { MoreVertical, Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, MoreVertical, Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type {
   Account,
   Category,
@@ -156,10 +156,22 @@ export function MonthTransactionsTable({
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Transfer modal state
+  const [transferModalRowId, setTransferModalRowId] = useState<string | null>(null);
+  const [transferFrom, setTransferFrom] = useState<string>("");
+  const [transferTo, setTransferTo] = useState<string>("");
+  const [transferAmount, setTransferAmount] = useState<string>("");
+  // Store original type before switching to internal_transfer (for cancel revert)
+  const [transferPrevType, setTransferPrevType] = useState<TransactionType>("income");
+
   // Allow typing "-" for negative amounts; key = `${rowId}-${accId}`
   const [pendingAmountInput, setPendingAmountInput] = useState<
     Record<string, string>
   >({});
+
+  // Sort: "desc" = newest first (default), "asc" = oldest first
+  const [dateSortDir, setDateSortDir] = useState<"asc" | "desc">("desc");
 
   // Filters
   const [filterType, setFilterType] = useState<TransactionType | "">("");
@@ -197,6 +209,7 @@ export function MonthTransactionsTable({
     }));
     const drafts: TableRow[] = draftRows.map((d) => ({ ...d, isDraft: true }));
     const combined = [...drafts, ...existing];
+    const dirMul = dateSortDir === "desc" ? -1 : 1;
     return combined.sort((a, b) => {
       // Drafts always first (new rows at top until saved)
       if (a.isDraft && !b.isDraft) return -1;
@@ -204,14 +217,14 @@ export function MonthTransactionsTable({
       const dateA = "date" in a ? a.date : "";
       const dateB = "date" in b ? b.date : "";
       const cmp = (dateA || "").localeCompare(dateB || "");
-      if (cmp !== 0) return cmp;
+      if (cmp !== 0) return cmp * dirMul;
       const orderA =
         "row_order" in a ? (a as TransactionWithAmounts).row_order : 0;
       const orderB =
         "row_order" in b ? (b as TransactionWithAmounts).row_order : 0;
-      return orderA - orderB;
+      return (orderA - orderB) * dirMul;
     });
-  }, [transactions, draftRows]);
+  }, [transactions, draftRows, dateSortDir]);
 
   const filteredRows = useMemo(() => {
     if (!hasActiveFilters) return allRows;
@@ -301,19 +314,19 @@ export function MonthTransactionsTable({
       ).length;
       const hasAmount = accountsWithAmount > 0;
       if (!String(displayDate).trim()) {
-        setValidationError("Date is required.");
+        setValidationError("La fecha es obligatoria.");
         return;
       }
       if (!String(displayDesc).trim()) {
-        setValidationError("Description is required.");
+        setValidationError("La descripción es obligatoria.");
         return;
       }
       if (!hasAmount) {
-        setValidationError("At least one amount is required.");
+        setValidationError("Se requiere al menos un monto.");
         return;
       }
       if (displayType === "internal_transfer" && accountsWithAmount < 2) {
-        setValidationError("Internal transfer requires at least two accounts.");
+        setValidationError("La transferencia interna requiere al menos dos cuentas.");
         return;
       }
       if (displayType === "internal_transfer") {
@@ -323,29 +336,32 @@ export function MonthTransactionsTable({
         );
         if (Math.abs(sum) > 1e-6) {
           setValidationError(
-            "Internal transfer must balance: sum of amounts must be 0."
+            "La transferencia interna debe estar balanceada: la suma debe ser 0."
           );
           return;
         }
       }
-      if (!displayCategoryId) {
-        setValidationError("Category is required.");
+      if (!displayCategoryId && displayType !== "internal_transfer") {
+        setValidationError("La categoría es obligatoria.");
         return;
       }
       try {
         const amounts = accountIds
           .filter((accId) => getAmountForRow(display, accId) !== 0)
-          .map((account_id) => ({
-            account_id,
-            amount: getAmountForRow(display, account_id),
-          }));
+          .map((account_id) => {
+            const raw = getAmountForRow(display, account_id);
+            return {
+              account_id,
+              amount: displayType === "expense" ? -Math.abs(raw) : raw,
+            };
+          });
         const draftIndex = draftRows.findIndex((r) => r.id === d.id);
         await createTx.mutateAsync({
           month_id: monthId,
           date: String(displayDate).trim(),
           type: displayType,
           description: String(displayDesc).trim(),
-          category_id: displayCategoryId,
+          category_id: displayCategoryId ?? null,
           row_order: nextRowOrder + draftIndex,
           amounts,
         });
@@ -373,19 +389,19 @@ export function MonthTransactionsTable({
       ).length;
       const hasAmount = accountsWithAmount > 0;
       if (!display.date?.trim()) {
-        setValidationError("Date is required.");
+        setValidationError("La fecha es obligatoria.");
         return;
       }
       if (!display.description?.trim()) {
-        setValidationError("Description is required.");
+        setValidationError("La descripción es obligatoria.");
         return;
       }
       if (!hasAmount) {
-        setValidationError("At least one amount is required.");
+        setValidationError("Se requiere al menos un monto.");
         return;
       }
       if (display.type === "internal_transfer" && accountsWithAmount < 2) {
-        setValidationError("Internal transfer requires at least two accounts.");
+        setValidationError("La transferencia interna requiere al menos dos cuentas.");
         return;
       }
       if (display.type === "internal_transfer") {
@@ -395,13 +411,13 @@ export function MonthTransactionsTable({
         );
         if (Math.abs(sum) > 1e-6) {
           setValidationError(
-            "Internal transfer must balance: sum of amounts must be 0."
+            "La transferencia interna debe estar balanceada: la suma debe ser 0."
           );
           return;
         }
       }
-      if (!display.category_id) {
-        setValidationError("Category is required.");
+      if (!display.category_id && display.type !== "internal_transfer") {
+        setValidationError("La categoría es obligatoria.");
         return;
       }
       const orig = transactions.find((t) => t.id === rowId);
@@ -416,16 +432,24 @@ export function MonthTransactionsTable({
           payload.description = edit.description;
         if (edit.category_id !== undefined)
           payload.category_id = edit.category_id;
-        if (edit.amounts !== undefined) {
+        if (edit.amounts !== undefined || edit.type !== undefined) {
           const fullAmounts = {
             ...Object.fromEntries(
               orig.transaction_amounts.map((a) => [a.account_id, a.amount])
             ),
-            ...edit.amounts,
+            ...(edit.amounts ?? {}),
           };
           payload.amounts = Object.entries(fullAmounts)
             .filter(([, amount]) => amount !== 0)
-            .map(([account_id, amount]) => ({ account_id, amount: amount! }));
+            .map(([account_id, amount]) => ({
+              account_id,
+              amount:
+                display.type === "internal_transfer"
+                  ? amount!
+                  : display.type === "expense"
+                  ? -Math.abs(amount!)
+                  : Math.abs(amount!),
+            }));
         }
         await updateTx.mutateAsync(payload);
         setEdits((prev) => {
@@ -456,7 +480,7 @@ export function MonthTransactionsTable({
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="outline" onClick={addRow}>
           <Plus className="size-4" />
-          Add row
+          Agregar fila
         </Button>
         <div className="mx-1 h-6 w-px bg-border" />
         <select
@@ -537,7 +561,7 @@ export function MonthTransactionsTable({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-background rounded-lg border p-4 shadow-lg max-w-sm w-full mx-4">
             <p className="text-sm font-medium mb-4">
-              Are you sure you want to delete this transaction?
+              ¿Estás seguro de que querés eliminar esta transacción?
             </p>
             <div className="flex justify-end gap-2">
               <Button
@@ -546,7 +570,7 @@ export function MonthTransactionsTable({
                 size="sm"
                 onClick={() => setDeleteTargetId(null)}
               >
-                Cancel
+                Cancelar
               </Button>
               <Button
                 type="button"
@@ -555,7 +579,123 @@ export function MonthTransactionsTable({
                 onClick={handleConfirmDelete}
                 disabled={deleteTx.isPending}
               >
-                {deleteTx.isPending ? "Deleting…" : "Delete"}
+                {deleteTx.isPending ? "Eliminando…" : "Eliminar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {transferModalRowId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg border p-4 shadow-lg max-w-sm w-full mx-4">
+            <p className="text-sm font-medium mb-4">Transferencia interna</p>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Desde</label>
+                <select
+                  value={transferFrom}
+                  onChange={(e) => setTransferFrom(e.target.value)}
+                  className="border-input h-8 w-full rounded-md border bg-transparent px-2 py-1 text-sm"
+                >
+                  <option value="">Seleccionar cuenta</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id} disabled={acc.id === transferTo}>
+                      {acc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Hacia</label>
+                <select
+                  value={transferTo}
+                  onChange={(e) => setTransferTo(e.target.value)}
+                  className="border-input h-8 w-full rounded-md border bg-transparent px-2 py-1 text-sm"
+                >
+                  <option value="">Seleccionar cuenta</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id} disabled={acc.id === transferFrom}>
+                      {acc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Monto</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value.replace(",", "."))}
+                  placeholder="0.00"
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Revert type to previous value
+                  const rowId = transferModalRowId;
+                  const draft = draftRows.find((r) => r.id === rowId);
+                  if (draft) {
+                    setDraftRows((prev) =>
+                      prev.map((r) =>
+                        r.id === rowId ? { ...r, type: transferPrevType } : r
+                      )
+                    );
+                  } else {
+                    setEdit(rowId, { type: transferPrevType });
+                  }
+                  setTransferModalRowId(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!transferFrom || !transferTo || !transferAmount || transferFrom === transferTo}
+                onClick={() => {
+                  const amt = parseFloat(transferAmount);
+                  if (Number.isNaN(amt) || amt <= 0) return;
+                  const rowId = transferModalRowId;
+                  const newAmounts: Record<string, number> = {};
+                  for (const accId of accountIds) {
+                    newAmounts[accId] = 0;
+                  }
+                  newAmounts[transferFrom] = -Math.abs(amt);
+                  newAmounts[transferTo] = Math.abs(amt);
+
+                  const fromName = accounts.find((a) => a.id === transferFrom)?.name ?? "";
+                  const toName = accounts.find((a) => a.id === transferTo)?.name ?? "";
+                  const autoDescription = `${fromName} → ${toName}`;
+
+                  const draft = draftRows.find((r) => r.id === rowId);
+                  if (draft) {
+                    setDraftRows((prev) =>
+                      prev.map((r) =>
+                        r.id === rowId ? { ...r, amounts: newAmounts, description: autoDescription } : r
+                      )
+                    );
+                  } else {
+                    setEdit(rowId, { amounts: newAmounts, description: autoDescription });
+                  }
+                  // Clear pending amount inputs for this row
+                  setPendingAmountInput((prev) => {
+                    const next = { ...prev };
+                    for (const accId of accountIds) {
+                      delete next[`${rowId}-${accId}`];
+                    }
+                    return next;
+                  });
+                  setTransferModalRowId(null);
+                }}
+              >
+                Confirmar
               </Button>
             </div>
           </div>
@@ -565,22 +705,43 @@ export function MonthTransactionsTable({
         className="min-h-[200px] flex-1 overflow-auto rounded-md border"
         style={{ maxHeight: "calc(100svh - 24rem)" }}
       >
-        <table className="w-full min-w-[600px] text-sm">
+        <table className="w-full min-w-[600px] table-fixed text-sm">
+          <colgroup>
+            <col className="w-28" />
+            <col className="w-24" />
+            <col className="w-36" />
+            {(accounts ?? []).map((acc) => (
+              <col key={acc.id} className="w-32" />
+            ))}
+            <col className="w-20" />
+            <col className="w-32" />
+            <col className="w-[4.5rem]" />
+          </colgroup>
           <thead>
             <tr className="border-b bg-muted sticky top-0 z-10">
-              <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                Date
-              </th>
-              <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                Description
+              <th
+                className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium cursor-pointer select-none"
+                onClick={() => setDateSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+              >
+                <span className="inline-flex items-center gap-1">
+                  Fecha
+                  {dateSortDir === "desc" ? (
+                    <ArrowDown className="size-3.5" />
+                  ) : (
+                    <ArrowUp className="size-3.5" />
+                  )}
+                </span>
               </th>
               <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
                 Tipo
               </th>
+              <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
+                Descripción
+              </th>
               {(accounts ?? []).map((acc) => (
                 <th
                   key={acc.id}
-                  className="sticky top-0 z-10 bg-muted px-3 py-2 text-right font-medium tabular-nums"
+                  className="sticky top-0 z-10 bg-muted whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums"
                 >
                   {acc.name}
                 </th>
@@ -589,7 +750,7 @@ export function MonthTransactionsTable({
                 Total
               </th>
               <th className="sticky top-0 z-10 bg-muted px-3 py-2 text-left font-medium">
-                Category
+                Categoría
               </th>
               <th className="sticky top-0 z-10 w-[4.5rem] bg-muted px-1 py-2" />
             </tr>
@@ -632,44 +793,71 @@ export function MonthTransactionsTable({
                         />
                       </td>
                       <td className="px-3 py-1.5">
-                        <Input
-                          value={display.description}
-                          onChange={(e) =>
-                            isDraft
-                              ? setDraftRows((prev) =>
-                                  prev.map((r) =>
-                                    r.id === row.id
-                                      ? { ...r, description: e.target.value }
-                                      : r
-                                  )
-                                )
-                              : setEdit(row.id, { description: e.target.value })
-                          }
-                          placeholder="Description"
-                          className="h-8 text-sm max-w-[180px]"
-                          required
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
                         <select
                           value={display.type}
-                          onChange={(e) =>
-                            isDraft
-                              ? setDraftRows((prev) =>
+                          onChange={(e) => {
+                            const newType = e.target.value as TransactionType;
+
+                            // Open transfer modal instead of directly setting amounts
+                            if (newType === "internal_transfer") {
+                              setTransferPrevType(display.type);
+                              setTransferModalRowId(row.id);
+                              setTransferFrom("");
+                              setTransferTo("");
+                              setTransferAmount("");
+                              // Set type immediately so the select shows the new value
+                              if (isDraft) {
+                                setDraftRows((prev) =>
                                   prev.map((r) =>
-                                    r.id === row.id
-                                      ? {
-                                          ...r,
-                                          type: e.target
-                                            .value as TransactionType,
-                                        }
-                                      : r
+                                    r.id === row.id ? { ...r, type: newType } : r
                                   )
-                                )
-                              : setEdit(row.id, {
-                                  type: e.target.value as TransactionType,
+                                );
+                              } else {
+                                setEdit(row.id, { type: newType });
+                              }
+                              return;
+                            }
+
+                            const normalize = (v: number) =>
+                              newType === "expense" ? -Math.abs(v) : Math.abs(v);
+                            if (isDraft) {
+                              setDraftRows((prev) =>
+                                prev.map((r) => {
+                                  if (r.id !== row.id) return r;
+                                  const updatedAmounts: Record<string, number> = {};
+                                  for (const accId of accountIds) {
+                                    const val = r.amounts[accId] ?? 0;
+                                    if (val !== 0) updatedAmounts[accId] = normalize(val);
+                                  }
+                                  return {
+                                    ...r,
+                                    type: newType,
+                                    amounts: { ...r.amounts, ...updatedAmounts },
+                                  };
                                 })
-                          }
+                              );
+                            } else {
+                              const currentAmounts: Record<string, number> = {};
+                              for (const accId of accountIds) {
+                                const val = getAmountForRow(display, accId);
+                                if (val !== 0) currentAmounts[accId] = normalize(val);
+                              }
+                              setEdit(row.id, {
+                                type: newType,
+                                ...(Object.keys(currentAmounts).length > 0
+                                  ? { amounts: currentAmounts }
+                                  : {}),
+                              });
+                            }
+                            // Clear pending input so normalized values show
+                            setPendingAmountInput((prev) => {
+                              const next = { ...prev };
+                              for (const accId of accountIds) {
+                                delete next[`${row.id}-${accId}`];
+                              }
+                              return next;
+                            });
+                          }}
                           className={selectClass}
                         >
                           {(
@@ -684,6 +872,25 @@ export function MonthTransactionsTable({
                           ))}
                         </select>
                       </td>
+                      <td className="px-3 py-1.5">
+                        <Input
+                          value={display.description}
+                          onChange={(e) =>
+                            isDraft
+                              ? setDraftRows((prev) =>
+                                  prev.map((r) =>
+                                    r.id === row.id
+                                      ? { ...r, description: e.target.value }
+                                      : r
+                                  )
+                                )
+                              : setEdit(row.id, { description: e.target.value })
+                          }
+                          placeholder="Descripción"
+                          className="h-8 text-sm max-w-[180px]"
+                          required
+                        />
+                      </td>
                       {accountIds.map((accId) => {
                         const amountKey = `${row.id}-${accId}`;
                         const amount = getAmountForRow(display, accId);
@@ -693,65 +900,73 @@ export function MonthTransactionsTable({
                             : amount === 0
                             ? ""
                             : String(amount);
+                        const isExpense = display.type === "expense";
                         return (
                           <td key={accId} className="px-3 py-1.5 text-right">
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              value={inputValue}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                const trimmed = raw.replace(",", ".");
-                                const num = parseFloat(trimmed);
-                                setPendingAmountInput((prev) => ({
-                                  ...prev,
-                                  [amountKey]: raw,
-                                }));
-                                const valueToStore =
-                                  raw === "" || raw === "-"
-                                    ? 0
-                                    : !Number.isNaN(num)
-                                    ? num
-                                    : amount;
-                                if (isDraft) {
-                                  setDraftRows((prev) =>
-                                    prev.map((r) =>
-                                      r.id === row.id
-                                        ? {
-                                            ...r,
-                                            amounts: {
-                                              ...r.amounts,
-                                              [accId]: valueToStore,
-                                            },
-                                          }
-                                        : r
-                                    )
-                                  );
-                                } else {
-                                  const currentAmounts = accountIds.reduce(
-                                    (acc, aid) => ({
-                                      ...acc,
-                                      [aid]: getAmountForRow(display, aid),
-                                    }),
-                                    {} as Record<string, number>
-                                  );
-                                  setEdit(row.id, {
-                                    amounts: {
-                                      ...currentAmounts,
-                                      [accId]: valueToStore,
-                                    },
+                            <div className="relative inline-flex items-center">
+                              {isExpense && (
+                                <span className="pointer-events-none absolute left-2 text-sm text-muted-foreground">
+                                  &minus;
+                                </span>
+                              )}
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={inputValue}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const trimmed = raw.replace(",", ".");
+                                  const num = parseFloat(trimmed);
+                                  setPendingAmountInput((prev) => ({
+                                    ...prev,
+                                    [amountKey]: raw,
+                                  }));
+                                  const valueToStore =
+                                    raw === "" || raw === "-"
+                                      ? 0
+                                      : !Number.isNaN(num)
+                                      ? num
+                                      : amount;
+                                  if (isDraft) {
+                                    setDraftRows((prev) =>
+                                      prev.map((r) =>
+                                        r.id === row.id
+                                          ? {
+                                              ...r,
+                                              amounts: {
+                                                ...r.amounts,
+                                                [accId]: valueToStore,
+                                              },
+                                            }
+                                          : r
+                                      )
+                                    );
+                                  } else {
+                                    const currentAmounts = accountIds.reduce(
+                                      (acc, aid) => ({
+                                        ...acc,
+                                        [aid]: getAmountForRow(display, aid),
+                                      }),
+                                      {} as Record<string, number>
+                                    );
+                                    setEdit(row.id, {
+                                      amounts: {
+                                        ...currentAmounts,
+                                        [accId]: valueToStore,
+                                      },
+                                    });
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setPendingAmountInput((prev) => {
+                                    const next = { ...prev };
+                                    delete next[amountKey];
+                                    return next;
                                   });
-                                }
-                              }}
-                              onBlur={() => {
-                                setPendingAmountInput((prev) => {
-                                  const next = { ...prev };
-                                  delete next[amountKey];
-                                  return next;
-                                });
-                              }}
-                              className="h-8 w-24 text-right text-sm tabular-nums"
-                            />
+                                }}
+                                className={`h-8 w-24 text-right text-sm tabular-nums ${isExpense ? "pl-6" : ""}`}
+                              />
+                            </div>
                           </td>
                         );
                       })}
@@ -759,34 +974,38 @@ export function MonthTransactionsTable({
                         {formatCurrency(total)}
                       </td>
                       <td className="px-3 py-1.5">
-                        <select
-                          value={display.category_id ?? ""}
-                          onChange={(e) =>
-                            isDraft
-                              ? setDraftRows((prev) =>
-                                  prev.map((r) =>
-                                    r.id === row.id
-                                      ? {
-                                          ...r,
-                                          category_id: e.target.value || null,
-                                        }
-                                      : r
+                        {display.type === "internal_transfer" ? (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        ) : (
+                          <select
+                            value={display.category_id ?? ""}
+                            onChange={(e) =>
+                              isDraft
+                                ? setDraftRows((prev) =>
+                                    prev.map((r) =>
+                                      r.id === row.id
+                                        ? {
+                                            ...r,
+                                            category_id: e.target.value || null,
+                                          }
+                                        : r
+                                    )
                                   )
-                                )
-                              : setEdit(row.id, {
-                                  category_id: e.target.value || null,
-                                })
-                          }
-                          className={selectClass}
-                          required
-                        >
-                          <option value="">Select category</option>
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
+                                : setEdit(row.id, {
+                                    category_id: e.target.value || null,
+                                  })
+                            }
+                            className={selectClass}
+                            required
+                          >
+                            <option value="">Seleccionar categoría</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="w-[4.5rem] px-1 py-1 align-middle">
                         {isDraft ? (
@@ -798,7 +1017,7 @@ export function MonthTransactionsTable({
                               className="h-7 w-7"
                               onClick={() => saveDraftRow(row as DraftRow)}
                               disabled={createTx.isPending}
-                              title="Save row"
+                              title="Guardar fila"
                             >
                               <Save className="size-4" />
                             </Button>
@@ -809,7 +1028,7 @@ export function MonthTransactionsTable({
                               className="h-7 w-7 text-muted-foreground hover:text-destructive"
                               onClick={() => discardDraftRow(row.id)}
                               disabled={createTx.isPending}
-                              title="Discard row"
+                              title="Descartar fila"
                             >
                               <X className="size-4" />
                             </Button>
@@ -822,7 +1041,7 @@ export function MonthTransactionsTable({
                             className="h-7 w-7"
                             onClick={() => saveEditedRow(row.id)}
                             disabled={updateTx.isPending}
-                            title="Save row"
+                            title="Guardar fila"
                           >
                             <Save className="size-4" />
                           </Button>
@@ -848,15 +1067,15 @@ export function MonthTransactionsTable({
                               >
                                 <Pencil className="size-3.5 mr-2" />
                                 {editingRowId === row.id
-                                  ? "Cancel edit"
-                                  : "Edit"}
+                                  ? "Cancelar edición"
+                                  : "Editar"}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => setDeleteTargetId(row.id)}
                                 className="text-destructive focus:text-destructive"
                               >
                                 <Trash2 className="size-3.5 mr-2" />
-                                Delete
+                                Eliminar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -868,9 +1087,6 @@ export function MonthTransactionsTable({
                       <td className="whitespace-nowrap px-3 py-1.5 text-muted-foreground text-sm">
                         {formatDate(display.date)}
                       </td>
-                      <td className="px-3 py-1.5 text-sm max-w-[180px] truncate">
-                        {display.description || "—"}
-                      </td>
                       <td className="px-3 py-1.5">
                         <Badge
                           variant={
@@ -879,6 +1095,9 @@ export function MonthTransactionsTable({
                         >
                           {TYPE_LABEL[display.type] ?? display.type}
                         </Badge>
+                      </td>
+                      <td className="px-3 py-1.5 text-sm max-w-[180px] truncate">
+                        {display.description || "—"}
                       </td>
                       {accountIds.map((accId) => {
                         const amount = getAmountForRow(display, accId);
@@ -919,14 +1138,14 @@ export function MonthTransactionsTable({
                               }
                             >
                               <Pencil className="size-3.5 mr-2" />
-                              {editingRowId === row.id ? "Cancel edit" : "Edit"}
+                              {editingRowId === row.id ? "Cancelar edición" : "Editar"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => setDeleteTargetId(row.id)}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="size-3.5 mr-2" />
-                              Delete
+                              Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -942,7 +1161,7 @@ export function MonthTransactionsTable({
           <p className="border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
             {hasActiveFilters
               ? "No hay transacciones que coincidan con los filtros."
-              : 'No transactions. Click "Add row" to add one.'}
+              : "No hay transacciones. Hacé clic en \"Agregar fila\" para crear una."}
           </p>
         )}
       </div>
