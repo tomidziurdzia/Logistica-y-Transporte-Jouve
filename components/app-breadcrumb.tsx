@@ -17,6 +17,24 @@ export function AppBreadcrumb() {
   const monthId = monthIdMatch?.[1] ?? null;
   const { data: monthData } = useMonthData(monthId);
 
+  if (pathname === "/cash-flow") {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
+              Home
+            </Link>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Flujo de fondos</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
   if (pathname === "/") {
     return (
       <Breadcrumb>
