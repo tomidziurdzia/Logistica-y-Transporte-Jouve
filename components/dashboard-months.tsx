@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMonths, useCreateMonth } from "@/hooks/use-months";
+import { useRouter } from "next/navigation";
+import { useMonths } from "@/hooks/use-months";
 import { Button } from "@/components/ui/button";
 import { CalendarPlus } from "lucide-react";
+import { NewMonthModal } from "@/components/new-month-modal";
 
 const loadingPlaceholder = (
   <p className="text-muted-foreground">Loading months…</p>
@@ -11,8 +13,9 @@ const loadingPlaceholder = (
 
 export function DashboardMonths() {
   const [mounted, setMounted] = useState(false);
+  const [showNewMonthModal, setShowNewMonthModal] = useState(false);
   const { data: months, isLoading, error } = useMonths();
-  const createMonth = useCreateMonth();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -34,25 +37,34 @@ export function DashboardMonths() {
     );
   }
 
-  if (!months || months.length === 0) {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+  const now = new Date();
+  const nextMonth = months && months.length > 0
+    ? (() => {
+        const latest = months[0];
+        const m = latest.month === 12 ? 1 : latest.month + 1;
+        const y = latest.month === 12 ? latest.year + 1 : latest.year;
+        return { year: y, month: m };
+      })()
+    : { year: now.getFullYear(), month: now.getMonth() + 1 };
 
+  if (!months || months.length === 0) {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-muted-foreground">No months loaded.</p>
-        <Button
-          onClick={() => createMonth.mutate({ year, month })}
-          disabled={createMonth.isPending}
-        >
+        <Button onClick={() => setShowNewMonthModal(true)}>
           <CalendarPlus className="size-4" />
-          {createMonth.isPending ? "Creating…" : "Create current month"}
+          Create current month
         </Button>
-        {createMonth.isError && (
-          <p className="text-destructive text-sm">
-            {createMonth.error.message}
-          </p>
+        {showNewMonthModal && (
+          <NewMonthModal
+            year={nextMonth.year}
+            month={nextMonth.month}
+            onClose={() => setShowNewMonthModal(false)}
+            onCreated={(monthId) => {
+              setShowNewMonthModal(false);
+              router.push(`/month/${monthId}`);
+            }}
+          />
         )}
       </div>
     );

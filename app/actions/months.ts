@@ -70,3 +70,102 @@ export async function createMonth(
   if (error) throw new Error(error.message);
   return data as Month;
 }
+
+export async function getPreviousMonthClosingBalances(
+  year: number,
+  month: number,
+): Promise<{ account_id: string; account_name: string; balance: number }[]> {
+  const supabase = await createClient();
+
+  // Calculate previous month
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+
+  // Get all active accounts
+  const { data: accounts, error: accErr } = await supabase
+    .from("accounts")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (accErr) throw new Error(accErr.message);
+  if (!accounts || accounts.length === 0) return [];
+
+  // Find the previous month
+  const { data: prevMonthRow } = await supabase
+    .from("months")
+    .select("id")
+    .eq("year", prevYear)
+    .eq("month", prevMonth)
+    .single();
+
+  if (!prevMonthRow) {
+    return accounts.map((a) => ({
+      account_id: a.id,
+      account_name: a.name,
+      balance: 0,
+    }));
+  }
+
+  // Get opening balances and transactions for previous month
+  const [obRes, txRes] = await Promise.all([
+    supabase
+      .from("opening_balances")
+      .select("account_id, amount")
+      .eq("month_id", prevMonthRow.id),
+    supabase
+      .from("transactions")
+      .select("transaction_amounts (account_id, amount)")
+      .eq("month_id", prevMonthRow.id),
+  ]);
+
+  if (obRes.error) throw new Error(obRes.error.message);
+  if (txRes.error) throw new Error(txRes.error.message);
+
+  // Build balance map: opening_balance + sum(transaction_amounts)
+  const balanceMap: Record<string, number> = {};
+  for (const acc of accounts) {
+    balanceMap[acc.id] = 0;
+  }
+
+  for (const ob of obRes.data ?? []) {
+    balanceMap[ob.account_id] = (balanceMap[ob.account_id] ?? 0) + ob.amount;
+  }
+
+  for (const tx of txRes.data ?? []) {
+    const amounts = (tx as { transaction_amounts: { account_id: string; amount: number }[] }).transaction_amounts;
+    for (const ta of amounts ?? []) {
+      balanceMap[ta.account_id] = (balanceMap[ta.account_id] ?? 0) + ta.amount;
+    }
+  }
+
+  return accounts.map((a) => ({
+    account_id: a.id,
+    account_name: a.name,
+    balance: balanceMap[a.id] ?? 0,
+  }));
+}
+
+export async function createMonthWithBalances(
+  year: number,
+  month: number,
+  balances: { account_id: string; amount: number }[],
+  label?: string,
+): Promise<Month> {
+  const newMonth = await createMonth(year, month, label);
+
+  const nonZero = balances.filter((b) => b.amount !== 0);
+  if (nonZero.length > 0) {
+    const supabase = await createClient();
+    const rows = nonZero.map((b) => ({
+      month_id: newMonth.id,
+      account_id: b.account_id,
+      amount: b.amount,
+    }));
+
+    const { error } = await supabase.from("opening_balances").insert(rows);
+    if (error) throw new Error(error.message);
+  }
+
+  return newMonth;
+}
