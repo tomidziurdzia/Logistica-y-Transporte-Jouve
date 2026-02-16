@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCashFlowAnnual } from "@/hooks/use-cash-flow";
 import { formatCurrency } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import type { CashFlowMonthColumn, CashFlowCategoryRow, CashFlowBalanceRow } from "@/lib/db/types";
 
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
-
-// Default fiscal year: Oct previous year → Sep current year
-const DEFAULT_START_YEAR = CURRENT_MONTH >= 10 ? CURRENT_YEAR : CURRENT_YEAR - 1;
-const DEFAULT_START_MONTH = 10;
-const DEFAULT_END_YEAR = CURRENT_MONTH >= 10 ? CURRENT_YEAR + 1 : CURRENT_YEAR;
-const DEFAULT_END_MONTH = 9;
+function getFiscalDefaults() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return {
+    startYear: month >= 10 ? year : year - 1,
+    startMonth: 10,
+    endYear: month >= 10 ? year + 1 : year,
+    endMonth: 9,
+  };
+}
 
 function MonthHeader({ months }: { months: CashFlowMonthColumn[] }) {
   return (
@@ -188,10 +191,11 @@ function ResultRow({
 }
 
 export function CashFlowAnnualView() {
-  const [startYear] = useState(DEFAULT_START_YEAR);
-  const [startMonth] = useState(DEFAULT_START_MONTH);
-  const [endYear] = useState(DEFAULT_END_YEAR);
-  const [endMonth] = useState(DEFAULT_END_MONTH);
+  const defaults = useMemo(() => getFiscalDefaults(), []);
+  const [startYear] = useState(defaults.startYear);
+  const [startMonth] = useState(defaults.startMonth);
+  const [endYear] = useState(defaults.endYear);
+  const [endMonth] = useState(defaults.endMonth);
 
   const { data, isLoading, error } = useCashFlowAnnual(
     startYear,

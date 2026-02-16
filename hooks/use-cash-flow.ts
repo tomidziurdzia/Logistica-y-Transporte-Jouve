@@ -5,6 +5,7 @@ import {
   getCashFlowAnnual,
   getCashFlowMonthDetail,
   getIncomeStatement,
+  getCashFlowSummary,
 } from "@/app/actions/cash-flow";
 
 export function useCashFlowAnnual(
@@ -46,5 +47,18 @@ export function useIncomeStatement(
         startYear, startMonth, endYear, endMonth,
         accrualBasis, excludeNonBusiness
       ),
+  });
+}
+
+// Legacy hook kept for backward compatibility
+export function cashFlowQueryKey(monthIds: string[]) {
+  return ["cashFlowSummary", [...monthIds].sort().join(",")] as const;
+}
+
+export function useCashFlowSummary(monthIds: string[], enabled: boolean) {
+  return useQuery({
+    queryKey: cashFlowQueryKey(monthIds),
+    queryFn: () => getCashFlowSummary(monthIds),
+    enabled: enabled && monthIds.length > 0,
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useIncomeStatement } from "@/hooks/use-cash-flow";
@@ -9,12 +9,17 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { IncomeStatementRow } from "@/lib/db/types";
 
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
-const DEFAULT_START_YEAR = CURRENT_MONTH >= 10 ? CURRENT_YEAR : CURRENT_YEAR - 1;
-const DEFAULT_START_MONTH = 10;
-const DEFAULT_END_YEAR = CURRENT_MONTH >= 10 ? CURRENT_YEAR + 1 : CURRENT_YEAR;
-const DEFAULT_END_MONTH = 9;
+function getFiscalDefaults() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return {
+    startYear: month >= 10 ? year : year - 1,
+    startMonth: 10,
+    endYear: month >= 10 ? year + 1 : year,
+    endMonth: 9,
+  };
+}
 
 function StatementRow({
   row,
@@ -56,14 +61,15 @@ function StatementRow({
 }
 
 export function IncomeStatementView() {
+  const defaults = useMemo(() => getFiscalDefaults(), []);
   const [accrualBasis, setAccrualBasis] = useState(false);
   const [excludeNonBusiness, setExcludeNonBusiness] = useState(false);
 
   const { data, isLoading, error } = useIncomeStatement(
-    DEFAULT_START_YEAR,
-    DEFAULT_START_MONTH,
-    DEFAULT_END_YEAR,
-    DEFAULT_END_MONTH,
+    defaults.startYear,
+    defaults.startMonth,
+    defaults.endYear,
+    defaults.endMonth,
     accrualBasis,
     excludeNonBusiness
   );
