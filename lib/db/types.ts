@@ -14,6 +14,8 @@ export type AccountType =
   | "checks"
   | "other";
 
+export type PaymentMethod = "bank_cash" | "credit_card";
+
 export interface Account {
   id: string;
   name: string;
@@ -31,6 +33,21 @@ export interface Category {
   id: string;
   name: string;
   description: string | null;
+  created_at: string;
+}
+
+export interface Subcategory {
+  id: string;
+  category_id: string;
+  name: string;
+  display_order: number;
+  created_at: string;
+}
+
+export interface IncomeCategory {
+  id: string;
+  name: string;
+  display_order: number;
   created_at: string;
 }
 
@@ -58,6 +75,11 @@ export interface Transaction {
   type: TransactionType;
   description: string;
   category_id: string | null;
+  subcategory_id: string | null;
+  income_category_id: string | null;
+  accrual_month_id: string | null;
+  payment_method: PaymentMethod;
+  is_business_expense: boolean;
   row_order: number;
   created_at: string;
   updated_at: string;
@@ -81,4 +103,90 @@ export interface MonthData {
   month: Month;
   opening_balances: OpeningBalance[];
   transactions: TransactionWithAmounts[];
+}
+
+// ---------------------------------------------------------------------------
+// Cash Flow types
+// ---------------------------------------------------------------------------
+
+/** Row in the annual cash flow grid (one per category or account line). */
+export interface CashFlowMonthColumn {
+  month_id: string;
+  label: string;
+  amount: number;
+}
+
+/** Aggregated category row for cash flow annual view. */
+export interface CashFlowCategoryRow {
+  category_id: string | null;
+  category_name: string;
+  months: CashFlowMonthColumn[];
+  total: number;
+}
+
+/** Opening/closing balance row per account in cash flow. */
+export interface CashFlowBalanceRow {
+  account_id: string;
+  account_name: string;
+  months: CashFlowMonthColumn[];
+  total: number;
+}
+
+/** Full annual cash flow data. */
+export interface CashFlowAnnualData {
+  months: Month[];
+  opening_balances: CashFlowBalanceRow[];
+  opening_total: CashFlowMonthColumn[];
+  income_rows: CashFlowCategoryRow[];
+  income_total: CashFlowMonthColumn[];
+  expense_rows: CashFlowCategoryRow[];
+  expense_total: CashFlowMonthColumn[];
+  result: CashFlowMonthColumn[];
+  closing_balances: CashFlowBalanceRow[];
+  closing_total: CashFlowMonthColumn[];
+}
+
+/** Detail row for monthly expense breakdown by subcategory. */
+export interface CashFlowSubcategoryRow {
+  subcategory_id: string | null;
+  subcategory_name: string;
+  bank_cash: number;
+  credit_card: number;
+  total: number;
+}
+
+/** Category group with its subcategory rows for monthly detail. */
+export interface CashFlowCategoryDetail {
+  category_id: string;
+  category_name: string;
+  subcategories: CashFlowSubcategoryRow[];
+  bank_cash_total: number;
+  credit_card_total: number;
+  total: number;
+}
+
+/** Full monthly expense detail. */
+export interface CashFlowMonthDetail {
+  month: Month;
+  categories: CashFlowCategoryDetail[];
+  grand_bank_cash: number;
+  grand_credit_card: number;
+  grand_total: number;
+}
+
+/** Income statement (P&L) row. */
+export interface IncomeStatementRow {
+  label: string;
+  months: CashFlowMonthColumn[];
+  total: number;
+}
+
+/** Full income statement data. */
+export interface IncomeStatementData {
+  months: Month[];
+  income_rows: IncomeStatementRow[];
+  income_total: IncomeStatementRow;
+  expense_rows: IncomeStatementRow[];
+  expense_total: IncomeStatementRow;
+  net_result: IncomeStatementRow;
 }

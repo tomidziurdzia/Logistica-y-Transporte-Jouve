@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Home, Package, Users, Settings, LogOut, LucideIcon } from "lucide-react";
+import { Home, Package, Users, Settings, LogOut, TrendingUp, BarChart3, LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -126,6 +126,16 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMonthsDropdown />
+              <CollapsedDropdownItem
+                href="/cash-flow"
+                icon={TrendingUp}
+                label="Flujo de Fondos"
+              />
+              <CollapsedDropdownItem
+                href="/cash-flow/results"
+                icon={BarChart3}
+                label="Estado de Resultados"
+              />
               <CollapsedDropdownItem
                 href="/"
                 icon={Users}
